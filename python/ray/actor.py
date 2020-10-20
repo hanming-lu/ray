@@ -1,6 +1,7 @@
 import inspect
 import logging
 import weakref
+import pickle
 
 import ray.ray_constants as ray_constants
 import ray._raylet
@@ -8,6 +9,8 @@ import ray.signature as signature
 import ray.worker
 from ray.util.placement_group import (
     PlacementGroup, check_placement_group_index, get_current_placement_group)
+from ray.experimental.internal_kv import _internal_kv_initialized, \
+    _internal_kv_get, _internal_kv_put, _internal_kv_del
 
 from ray import ActorClassID, Language
 from ray._raylet import PythonFunctionDescriptor
@@ -934,15 +937,53 @@ def modify_class(cls):
             "classes. In Python 2, you must declare the class with "
             "'class ClassName(object):' instead of 'class ClassName:'.")
 
-    # Modify the class to have an additional method that will be used for
-    # terminating the worker.
+    # Modify the class to have additional methods
     class Class(cls):
         __ray_actor_class__ = cls  # The original actor class
 
+        # an additional method that will be used for terminating the worker.
         def __ray_terminate__(self):
             worker = ray.worker.global_worker
             if worker.mode != ray.LOCAL_MODE:
                 ray.actor.exit_actor()
+        
+        # an additional method that will be used for migrating the actor.
+        # TODO(hanming): 
+        # 1) put __ray_migrate__, __ray_load_state__, and __ray_migrate_init__ in a derived class to allow the user 
+        #    to choose if they want the class to be migratable;
+        # 2) consider how to not be influenced by max_restart
+        # 3) check that __getstate__ and __setstate__ are defined
+        def __ray_migrate__(self):
+            worker = ray.worker.global_worker
+            worker.check_connected()
+            if worker.mode != ray.LOCAL_MODE:
+                odict = self.__getstate__()
+                user_state = pickle.dumps(odict, protocol=pickle.HIGHEST_PROTOCOL)
+                
+                actor_id_key = worker.actor_id.binary()
+
+                # checkpoint to external storage, i.e. redis
+                if _internal_kv_initialized():
+                    _internal_kv_put(actor_id_key, user_state, overwrite=True)
+
+                ray.actor.exit_actor_for_migrating()
+        
+        # load state from redis if this actor is migrated
+        def __ray_load_state__(self):
+            # Test python-level state loading
+            worker = ray.worker.global_worker
+            worker.check_connected()
+            actor_id_key = worker.actor_id.binary()
+            
+            if _internal_kv_initialized():
+                user_state_load = _internal_kv_get(actor_id_key)
+                if user_state_load:
+                    odict_new = pickle.loads(user_state_load)
+                    self.__setstate__(odict_new)
+
+                    _internal_kv_del(actor_id_key)
+                else:
+                    logger.warning("No user-level state stored in the external storage (e.g. Redis)")
 
     Class.__module__ = cls.__module__
     Class.__name__ = cls.__name__
@@ -956,6 +997,14 @@ def modify_class(cls):
             pass
 
         Class.__init__ = __init__
+
+    # modify __init__ to allow automatic loading from redis
+    # TODO(hanming): consider the case where cls.__init__ takes in args (i.e. pass along args, kwargs)
+    def __ray_migrate_init__(self):
+        cls.__init__(self)
+        self.__ray_load_state__()
+    
+    Class.__init__ = __ray_migrate_init__
 
     return Class
 
@@ -1009,6 +1058,27 @@ def exit_actor():
         # reduces log verbosity.
         exit = SystemExit(0)
         exit.is_ray_terminate = True
+        raise exit
+        assert False, "This process should have terminated."
+    else:
+        raise TypeError("exit_actor called on a non-actor worker.")
+
+def exit_actor_for_migrating():
+    """Intentionally exit the current actor and NOT disconnect.
+
+    This function is used to NOT disconnect an actor and exit the worker.
+    The purpose is to use mechanisms in GCS to restart the actor
+    TODO(hanming): How to exit gracefully 
+
+    Raises:
+        Exception: An exception is raised if this is a driver or this
+            worker is not an actor.
+    """
+    worker = ray.worker.global_worker
+    if worker.mode == ray.WORKER_MODE and not worker.actor_id.is_nil():
+        # Set a flag to indicate this is an intentional actor exit.
+        # GCS will respawn it since it is NOT disconnected from the raylet
+        exit = SystemExit(0)
         raise exit
         assert False, "This process should have terminated."
     else:
