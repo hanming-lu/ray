@@ -946,6 +946,15 @@ def modify_class(cls):
             worker = ray.worker.global_worker
             if worker.mode != ray.LOCAL_MODE:
                 ray.actor.exit_actor()
+
+        # For Anthony's experiments
+        # TODO(hanming): delete
+        def __get_node_id__(self):
+            worker = ray.worker.global_worker
+            worker.check_connected()
+
+            nodeID = worker.core_worker.get_current_node_id()
+            print("Current Node ID: ", nodeID)
         
         # an additional method that will be used for migrating the actor.
         # TODO(hanming): 
