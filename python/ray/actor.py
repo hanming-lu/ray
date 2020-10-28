@@ -965,34 +965,65 @@ def modify_class(cls):
         def __ray_migrate__(self):
             worker = ray.worker.global_worker
             worker.check_connected()
-            if worker.mode != ray.LOCAL_MODE:
-                odict = self.__getstate__()
-                user_state = pickle.dumps(odict, protocol=pickle.HIGHEST_PROTOCOL)
-                
-                actor_id_key = worker.actor_id.binary()
 
-                # checkpoint to external storage, i.e. redis
-                if _internal_kv_initialized():
-                    _internal_kv_put(actor_id_key, user_state, overwrite=True)
+            if worker.mode == ray.LOCAL_MODE:
+                # Cannot migrate a driver
+                return
 
-                ray.actor.exit_actor_for_migrating()
+            # get user-defined state, reference table, and memory store
+            user_state = self.__getstate__()
+            reference_table_bytes = worker.core_worker.get_reference_table_bytes()
+            memory_store_bytes = worker.core_worker.get_memory_store_bytes()
+
+            states = {}
+            states["user_state"] = user_state
+            if reference_table_bytes:
+                states["ref_table"] = reference_table_bytes
+            if memory_store_bytes:
+                states["memory_store"] = memory_store_bytes
+            states_bytes = pickle.dumps(states, protocol=pickle.HIGHEST_PROTOCOL)
+
+            actor_id_key = worker.actor_id.binary()
+
+            if _internal_kv_initialized():
+                _internal_kv_put(actor_id_key, states_bytes, overwrite=True)
+            else:
+                logger.warning("External storage is not initialized.")
+
+            ray.actor.exit_actor_for_migrating()
         
         # load state from redis if this actor is migrated
         def __ray_load_state__(self):
-            # Test python-level state loading
             worker = ray.worker.global_worker
             worker.check_connected()
             actor_id_key = worker.actor_id.binary()
             
-            if _internal_kv_initialized():
-                user_state_load = _internal_kv_get(actor_id_key)
-                if user_state_load:
-                    odict_new = pickle.loads(user_state_load)
-                    self.__setstate__(odict_new)
-
-                    _internal_kv_del(actor_id_key)
-                else:
-                    logger.warning("No user-level state stored in the external storage (e.g. Redis)")
+            if not _internal_kv_initialized():
+                logger.warning("External storage is not initialized.")
+                return
+            
+            states_bytes_load = _internal_kv_get(actor_id_key)
+            if not states_bytes_load:
+                logger.info("This actor is not a migrated one.")
+                return
+            
+            # restore user state, reference table, and memory store
+            states_load = pickle.loads(states_bytes_load)
+            
+            if "user_state" in states_load:
+                self.__setstate__(states_load["user_state"])
+            else:
+                logger.warning("This actor is migrated, but no user-defined state is migrated.")
+            
+            if "ref_table" in states_load:
+                worker.core_worker.put_reference_table_bytes(states_load["ref_table"])
+            else:
+                logger.warning("This actor is migrated, but no reference table is migrated.")
+            
+            if "memory_store" in states_load:
+                worker.core_worker.put_memory_store_bytes(states_load["memory_store"])
+            else:
+                logger.warning("This actor is migrated, but no memory store is migrated.")
 
     Class.__module__ = cls.__module__
     Class.__name__ = cls.__name__

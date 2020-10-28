@@ -201,6 +201,10 @@ cdef extern from "ray/core_worker/core_worker.h" nogil:
                                const double capacity,
                                const CNodeID &client_Id)
         CRayStatus SpillObjects(const c_vector[CObjectID] &object_ids)
+        void GetSerializedReferenceTable(shared_ptr[CBuffer] &result)
+        void PutSerializedReferenceTable(const shared_ptr[CBuffer] &buf)
+        void GetSerializedMemoryStore(shared_ptr[CBuffer] &result)
+        void PutSerializedMemoryStore(const shared_ptr[CBuffer] &buf)
 
     cdef cppclass CCoreWorkerOptions "ray::CoreWorkerOptions":
         CWorkerType worker_type

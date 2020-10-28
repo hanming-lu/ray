@@ -2359,6 +2359,44 @@ void CoreWorker::HandlePlasmaObjectReady(const rpc::PlasmaObjectReadyRequest &re
   send_reply_callback(Status::OK(), nullptr, nullptr);
 }
 
+void CoreWorker::GetSerializedReferenceTable(std::shared_ptr<Buffer> &result) {
+  rpc::PlasmaObjectReadyRequest proto_placeholder;
+  reference_counter_->GetProtoForMigration(proto_placeholder);
+
+  std::string binary;
+  proto_placeholder.SerializeToString(&binary);
+  auto binarydata = const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(binary.data()));
+  result = std::make_shared<LocalMemoryBuffer>(
+            binarydata, binary.size(), /*copy_data=*/true);
+}
+
+void CoreWorker::PutSerializedReferenceTable(const std::shared_ptr<Buffer> &buf) {
+  rpc::PlasmaObjectReadyRequest targetProto;
+  std::string targetBinary(reinterpret_cast< char const* >(buf->Data()), buf->Size());
+  targetProto.ParseFromString(targetBinary);
+
+  reference_counter_->PutProtoForMigration(targetProto);
+}
+
+void CoreWorker::GetSerializedMemoryStore(std::shared_ptr<Buffer> &result){
+  rpc::PlasmaObjectReadyRequest proto_placeholder;
+  memory_store_->GetProtoForMigration(proto_placeholder);
+
+  std::string binary;
+  proto_placeholder.SerializeToString(&binary);
+  auto binarydata = const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(binary.data()));
+  result = std::make_shared<LocalMemoryBuffer>(
+            binarydata, binary.size(), /*copy_data=*/true);
+}
+
+void CoreWorker::PutSerializedMemoryStore(const std::shared_ptr<Buffer> &buf){
+  rpc::PlasmaObjectReadyRequest targetProto;
+  std::string targetBinary(reinterpret_cast< char const* >(buf->Data()), buf->Size());
+  targetProto.ParseFromString(targetBinary);
+
+  memory_store_->PutProtoForMigration(targetProto);
+}
+
 void CoreWorker::SetActorId(const ActorID &actor_id) {
   absl::MutexLock lock(&mutex_);
   if (!options_.is_local_mode) {

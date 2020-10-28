@@ -918,6 +918,18 @@ class CoreWorker : public rpc::CoreWorkerServiceHandler {
   /// \return void
   void SubscribeToPlasmaAdd(const ObjectID &object_id);
 
+  /// \param[out] result a buffer contains the result serialized reference table
+  void GetSerializedReferenceTable(std::shared_ptr<Buffer> &result);
+
+  /// \param[in] buf the serialized reference table to restore
+  void PutSerializedReferenceTable(const std::shared_ptr<Buffer> &buf);
+
+  /// \param[out] result a buffer contains the result serialized memory store
+  void GetSerializedMemoryStore(std::shared_ptr<Buffer> &result);
+
+  /// \param[in] buf the serialized memory store to restore
+  void PutSerializedMemoryStore(const std::shared_ptr<Buffer> &buf);
+
  private:
   void SetCurrentTaskId(const TaskID &task_id);
 

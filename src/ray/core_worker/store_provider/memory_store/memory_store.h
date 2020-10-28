@@ -134,6 +134,14 @@ class CoreWorkerMemoryStore {
   /// \return Total size of objects in the store.
   uint64_t UsedMemory();
 
+  /// Get proto for actor migration
+  ///
+  void GetProtoForMigration(rpc::PlasmaObjectReadyRequest &proto_placeholder);
+
+  /// Put proto for actor migration
+  ///
+  void PutProtoForMigration(const rpc::PlasmaObjectReadyRequest &proto_placeholder);
+
  private:
   /// See the public version of `Get` for meaning of the other arguments.
   /// \param[in] abort_if_any_object_is_exception Whether we should abort if any object

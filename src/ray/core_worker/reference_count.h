@@ -385,6 +385,14 @@ class ReferenceCounter : public ReferenceCounterInterface {
   /// records that the object has been spilled to suppress reconstruction.
   void HandleObjectSpilled(const ObjectID &object_id);
 
+  /// Get proto for actor migration
+  ///
+  void GetProtoForMigration(rpc::PlasmaObjectReadyRequest &proto_placeholder);
+
+  /// Put proto for actor migration
+  ///
+  void PutProtoForMigration(const rpc::PlasmaObjectReadyRequest &proto_placeholder);
+
  private:
   struct Reference {
     /// Constructor for a reference whose origin is unknown.

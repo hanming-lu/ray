@@ -1496,6 +1496,42 @@ cdef class CoreWorker:
         with nogil:
             check_status(CCoreWorkerProcess.GetCoreWorker()
                          .SpillObjects(object_ids))
+    
+    def get_reference_table_bytes(self):
+        cdef:
+            shared_ptr[CBuffer] result
+
+        CCoreWorkerProcess.GetCoreWorker().GetSerializedReferenceTable(result)
+        if result == nullptr:
+            return None
+
+        reference_table_bytes = Buffer.make(result).to_pybytes()
+        return reference_table_bytes
+    
+    def put_reference_table_bytes(self, reference_table_bytes):
+        cdef:
+            shared_ptr[CBuffer] buf
+        
+        buf = string_to_buffer(reference_table_bytes)
+        CCoreWorkerProcess.GetCoreWorker().PutSerializedReferenceTable(buf)
+
+    def get_memory_store_bytes(self):
+        cdef:
+            shared_ptr[CBuffer] result
+
+        CCoreWorkerProcess.GetCoreWorker().GetSerializedMemoryStore(result)
+        if result == nullptr:
+            return None
+
+        memory_store_bytes = Buffer.make(result).to_pybytes()
+        return memory_store_bytes
+
+    def put_memory_store_bytes(self, memory_store_bytes):
+        cdef:
+            shared_ptr[CBuffer] buf
+        
+        buf = string_to_buffer(memory_store_bytes)
+        CCoreWorkerProcess.GetCoreWorker().PutSerializedMemoryStore(buf)
 
 cdef void async_set_result(shared_ptr[CRayObject] obj,
                            CObjectID object_ref,
