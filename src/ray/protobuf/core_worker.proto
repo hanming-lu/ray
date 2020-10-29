@@ -71,6 +71,27 @@ message ReturnObject {
   int64 size = 6;
 }
 
+message MemoryObject {
+  // Object ID.
+  bytes object_id = 1;
+  // Data of the object.
+  bytes data = 2;
+
+  int64 data_size = 3; 
+
+  // Metadata of the object.
+  bytes metadata = 4;
+
+  int64 metadata_size = 5;
+
+  repeated bytes nested_object_ids = 6;
+}
+
+message MemoryObjectStore{
+  repeated MemoryObject objects = 1;
+}
+
+
 message PushTaskRequest {
   // The ID of the worker this message is intended for.
   bytes intended_worker_id = 1;

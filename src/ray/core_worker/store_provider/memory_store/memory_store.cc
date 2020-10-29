@@ -3,6 +3,7 @@
 #include "ray/common/ray_config.h"
 #include "ray/core_worker/context.h"
 #include "ray/core_worker/core_worker.h"
+#include "src/ray/protobuf/core_worker.pb.h"
 
 namespace ray {
 
@@ -108,7 +109,6 @@ std::shared_ptr<RayObject> GetRequest::Get(const ObjectID &object_id) const {
   if (iter != objects_.end()) {
     return iter->second;
   }
-
   return nullptr;
 }
 
@@ -465,4 +465,42 @@ MemoryStoreStats CoreWorkerMemoryStore::GetMemoryStoreStatisticalData() {
   return item;
 }
 
+void CoreWorkerMemoryStore::toProto(ray::rpc::MemoryObjectStore* mos) const{
+  //serialize 
+  ray::rpc::MemoryObject* memory_object;
+
+  auto iter = objects_.begin();
+  while (iter != objects_.end()) {
+      auto rayObjectPair = (*iter);
+      memory_object = mos->add_objects();
+      memory_object->set_object_id(rayObjectPair.first.Binary());
+      memory_object->set_data(std::string(reinterpret_cast<const char *>(rayObjectPair.second->GetData()->Data()) ));
+      memory_object->set_data_size(rayObjectPair.second->GetData()->Size());
+      memory_object->set_metadata(std::string(reinterpret_cast<const char *>(rayObjectPair.second->GetMetadata()->Data()) ));
+      memory_object->set_metadata_size(rayObjectPair.second->GetMetadata()->Size());
+      //  for (auto nested_id : rayObjectPair.second->GetNestedIds()){
+      //    auto nid = memory_object->add_nested_object_ids();
+      //    nid->add(nested_id);
+      //  }
+      //memory_object->nested_object_ids() = {rayObjectPair.second->GetNestedIds().begin(), rayObjectPair.second->GetNestedIds().end()};
+      iter++;
+  }
+}
+
+void CoreWorkerMemoryStore::fromProto(ray::rpc::MemoryObjectStore& mos_de){
+  //ray::rpc::MemoryObject* memory_object_de;
+  for(const ray::rpc::MemoryObject& memory_object_de : mos_de.objects()){
+    ObjectID object_id_de;
+    object_id_de.FromBinary(memory_object_de.object_id());
+
+    auto data_de = std::make_shared<LocalMemoryBuffer>(reinterpret_cast< uint8_t *>((char*)(memory_object_de.data().c_str())), (size_t)memory_object_de.data_size());
+    auto meta_data_de = std::make_shared<LocalMemoryBuffer>(reinterpret_cast< uint8_t *>((char*)memory_object_de.metadata().c_str()), (size_t)memory_object_de.metadata_size());
+    std::vector<ObjectID> myvector;
+    Put(RayObject(data_de, meta_data_de, myvector),object_id_de) ;
+  }
+}
+
+
 }  // namespace ray
+
+

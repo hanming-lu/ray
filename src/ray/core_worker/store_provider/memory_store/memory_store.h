@@ -134,6 +134,15 @@ class CoreWorkerMemoryStore {
   /// \return Total size of objects in the store.
   uint64_t UsedMemory();
 
+  /// give protobuf the memory store
+  ///
+  void toProto(ray::rpc::MemoryObjectStore* mos) const;
+
+  /// get from protobuf
+  ///
+  void fromProto(ray::rpc::MemoryObjectStore& mos_de);
+
+
  private:
   /// See the public version of `Get` for meaning of the other arguments.
   /// \param[in] abort_if_any_object_is_exception Whether we should abort if any object
