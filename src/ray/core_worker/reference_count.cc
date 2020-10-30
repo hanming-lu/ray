@@ -943,7 +943,7 @@ void ReferenceCounter::GetProtoForMigration(ReferenceTableProto *proto_placehold
   //   1) decide what info to include for migration
   //   2) design a proto message to hold such info
   //   3) use the proto message as a param to pass in (rpc::PlasmaObjectReadyRequest is only a placeholder)
-
+  absl::MutexLock lock(&mutex_);
   ReferenceTableToProto(object_id_refs_, proto_placeholder);
 }
 
