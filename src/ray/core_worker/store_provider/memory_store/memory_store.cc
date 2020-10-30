@@ -466,6 +466,7 @@ MemoryStoreStats CoreWorkerMemoryStore::GetMemoryStoreStatisticalData() {
 }
 
 void CoreWorkerMemoryStore::toProto(ray::rpc::MemoryObjectStore* mos) const{
+  absl::MutexLock lock(&mu_);
   //serialize 
   ray::rpc::MemoryObject* memory_object;
 
@@ -478,11 +479,9 @@ void CoreWorkerMemoryStore::toProto(ray::rpc::MemoryObjectStore* mos) const{
       memory_object->set_data_size(rayObjectPair.second->GetData()->Size());
       memory_object->set_metadata(std::string(reinterpret_cast<const char *>(rayObjectPair.second->GetMetadata()->Data()) ));
       memory_object->set_metadata_size(rayObjectPair.second->GetMetadata()->Size());
-      //  for (auto nested_id : rayObjectPair.second->GetNestedIds()){
-      //    auto nid = memory_object->add_nested_object_ids();
-      //    nid->add(nested_id);
-      //  }
-      //memory_object->nested_object_ids() = {rayObjectPair.second->GetNestedIds().begin(), rayObjectPair.second->GetNestedIds().end()};
+       for (auto nested_id : rayObjectPair.second->GetNestedIds()){
+         memory_object->add_nested_object_ids(nested_id.Binary());
+       }
       iter++;
   }
 }
@@ -495,10 +494,13 @@ void CoreWorkerMemoryStore::fromProto(ray::rpc::MemoryObjectStore& mos_de){
 
     auto data_de = std::make_shared<LocalMemoryBuffer>(reinterpret_cast< uint8_t *>((char*)(memory_object_de.data().c_str())), (size_t)memory_object_de.data_size());
     auto meta_data_de = std::make_shared<LocalMemoryBuffer>(reinterpret_cast< uint8_t *>((char*)memory_object_de.metadata().c_str()), (size_t)memory_object_de.metadata_size());
+    //auto str_vec = VectorFromProtobuf(memory_object_de.nested_object_ids());
     std::vector<ObjectID> myvector;
-    Put(RayObject(data_de, meta_data_de, myvector),object_id_de) ;
+    //std::transform(str_vec.begin(), str_vec.end(), std::back_inserter(myvector), ObjectID::FromBinary);
+    Put(RayObject(data_de, meta_data_de, IdVectorFromProtobuf<ObjectID>(memory_object_de.nested_object_ids())),object_id_de) ;
   }
 }
+
 
 void CoreWorkerMemoryStore::GetProtoForMigration(rpc::PlasmaObjectReadyRequest &proto_placeholder){
   // Need to:
