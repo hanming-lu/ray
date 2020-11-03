@@ -2360,8 +2360,8 @@ void CoreWorker::HandlePlasmaObjectReady(const rpc::PlasmaObjectReadyRequest &re
 }
 
 void CoreWorker::GetSerializedReferenceTable(std::shared_ptr<Buffer> &result) {
-  rpc::PlasmaObjectReadyRequest proto_placeholder;
-  reference_counter_->GetProtoForMigration(proto_placeholder);
+  rpc::ReferenceTableMigrationProto proto_placeholder;
+  reference_counter_->GetProtoForMigration(&proto_placeholder);
 
   std::string binary;
   proto_placeholder.SerializeToString(&binary);
@@ -2371,7 +2371,7 @@ void CoreWorker::GetSerializedReferenceTable(std::shared_ptr<Buffer> &result) {
 }
 
 void CoreWorker::PutSerializedReferenceTable(const std::shared_ptr<Buffer> &buf) {
-  rpc::PlasmaObjectReadyRequest targetProto;
+  rpc::ReferenceTableMigrationProto targetProto;
   std::string targetBinary(reinterpret_cast< char const* >(buf->Data()), buf->Size());
   targetProto.ParseFromString(targetBinary);
 

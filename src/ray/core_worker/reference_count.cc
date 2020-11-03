@@ -938,22 +938,26 @@ void ReferenceCounter::HandleObjectSpilled(const ObjectID &object_id) {
   ReleasePlasmaObject(it);
 }
 
-void ReferenceCounter::GetProtoForMigration(ReferenceTableProto *proto_placeholder){
+void ReferenceCounter::GetProtoForMigration(rpc::ReferenceTableMigrationProto *proto_placeholder){
   // Need to:
   //   1) decide what info to include for migration
   //   2) design a proto message to hold such info
   //   3) use the proto message as a param to pass in (rpc::PlasmaObjectReadyRequest is only a placeholder)
   absl::MutexLock lock(&mutex_);
-  ReferenceTableToProto(object_id_refs_, proto_placeholder);
+  for (const auto &id_ref : object_id_refs_) {
+    auto ref = proto_placeholder->add_refs();
+    id_ref.second.ToProto(ref);
+    ref->mutable_reference()->set_object_id(id_ref.first.Binary());
+  }
 }
 
-void ReferenceCounter::PutProtoForMigration(const ReferenceTableProto &proto_placeholder){
+void ReferenceCounter::PutProtoForMigration(const rpc::ReferenceTableMigrationProto &proto_placeholder){
   // Need to:
   //   1) same as get
   //   2) restore migrated info
 
   ReferenceTable refs;
-  refs = ReferenceTableFromProto(proto_placeholder);
+  refs = ReferenceTableFromProto(proto_placeholder.refs());
   // TODO: Figure out what to do with merge conflicts
   absl::MutexLock lock(&mutex_);
   for (auto pair : refs) {
