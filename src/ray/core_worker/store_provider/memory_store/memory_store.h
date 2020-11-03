@@ -134,22 +134,13 @@ class CoreWorkerMemoryStore {
   /// \return Total size of objects in the store.
   uint64_t UsedMemory();
 
-  /// Get proto for actor migration
+  /// Get memory proto for actor migration
   ///
-  void GetProtoForMigration(rpc::PlasmaObjectReadyRequest &proto_placeholder);
+  void GetProtoForMigration(rpc::MemoryObjectStore* mos) const;
 
-  /// Put proto for actor migration
+  /// Put memory proto for actor migration
   ///
-  void PutProtoForMigration(const rpc::PlasmaObjectReadyRequest &proto_placeholder);
-
-
-  /// give protobuf the memory store
-  ///
-  void toProto(ray::rpc::MemoryObjectStore* mos) const;
-
-  /// get from protobuf
-  ///
-  void fromProto(ray::rpc::MemoryObjectStore& mos_de);
+  void PutProtoForMigration(const rpc::MemoryObjectStore& mos_de);
 
 
  private:

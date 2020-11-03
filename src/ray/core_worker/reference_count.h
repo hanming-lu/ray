@@ -387,11 +387,11 @@ class ReferenceCounter : public ReferenceCounterInterface {
 
   /// Get proto for actor migration
   ///
-  void GetProtoForMigration(rpc::PlasmaObjectReadyRequest &proto_placeholder);
+  void GetProtoForMigration(rpc::ReferenceTableMigrationProto *proto_placeholder);
 
   /// Put proto for actor migration
   ///
-  void PutProtoForMigration(const rpc::PlasmaObjectReadyRequest &proto_placeholder);
+  void PutProtoForMigration(const rpc::ReferenceTableMigrationProto &proto_placeholder);
 
  private:
   struct Reference {

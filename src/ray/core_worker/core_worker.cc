@@ -2360,41 +2360,41 @@ void CoreWorker::HandlePlasmaObjectReady(const rpc::PlasmaObjectReadyRequest &re
 }
 
 void CoreWorker::GetSerializedReferenceTable(std::shared_ptr<Buffer> &result) {
-  rpc::PlasmaObjectReadyRequest proto_placeholder;
-  reference_counter_->GetProtoForMigration(proto_placeholder);
+  rpc::ReferenceTableMigrationProto proto;
+  reference_counter_->GetProtoForMigration(&proto);
 
   std::string binary;
-  proto_placeholder.SerializeToString(&binary);
+  proto.SerializeToString(&binary);
   auto binarydata = const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(binary.data()));
   result = std::make_shared<LocalMemoryBuffer>(
             binarydata, binary.size(), /*copy_data=*/true);
 }
 
 void CoreWorker::PutSerializedReferenceTable(const std::shared_ptr<Buffer> &buf) {
-  rpc::PlasmaObjectReadyRequest targetProto;
+  rpc::ReferenceTableMigrationProto proto;
   std::string targetBinary(reinterpret_cast< char const* >(buf->Data()), buf->Size());
-  targetProto.ParseFromString(targetBinary);
+  proto.ParseFromString(targetBinary);
 
-  reference_counter_->PutProtoForMigration(targetProto);
+  reference_counter_->PutProtoForMigration(proto);
 }
 
 void CoreWorker::GetSerializedMemoryStore(std::shared_ptr<Buffer> &result){
-  rpc::PlasmaObjectReadyRequest proto_placeholder;
-  memory_store_->GetProtoForMigration(proto_placeholder);
+  rpc::MemoryObjectStore proto;
+  memory_store_->GetProtoForMigration(&proto);
 
   std::string binary;
-  proto_placeholder.SerializeToString(&binary);
+  proto.SerializeToString(&binary);
   auto binarydata = const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(binary.data()));
   result = std::make_shared<LocalMemoryBuffer>(
             binarydata, binary.size(), /*copy_data=*/true);
 }
 
 void CoreWorker::PutSerializedMemoryStore(const std::shared_ptr<Buffer> &buf){
-  rpc::PlasmaObjectReadyRequest targetProto;
+  rpc::MemoryObjectStore proto;
   std::string targetBinary(reinterpret_cast< char const* >(buf->Data()), buf->Size());
-  targetProto.ParseFromString(targetBinary);
+  proto.ParseFromString(targetBinary);
 
-  memory_store_->PutProtoForMigration(targetProto);
+  memory_store_->PutProtoForMigration(proto);
 }
 
 void CoreWorker::SetActorId(const ActorID &actor_id) {

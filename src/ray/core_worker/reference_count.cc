@@ -938,29 +938,22 @@ void ReferenceCounter::HandleObjectSpilled(const ObjectID &object_id) {
   ReleasePlasmaObject(it);
 }
 
-void ReferenceCounter::GetProtoForMigration(rpc::PlasmaObjectReadyRequest &proto_placeholder){
-  // Need to:
-  //   1) decide what info to include for migration
-  //   2) design a proto message to hold such info
-  //   3) use the proto message as a param to pass in (rpc::PlasmaObjectReadyRequest is only a placeholder)
-  
-  proto_placeholder.set_object_id("ReferenceCounter");
-  proto_placeholder.set_metadata_size(1);
-  proto_placeholder.set_data_size(2);
-
-  std::cout << "proto object_id = " << proto_placeholder.object_id() << std::endl;
-  std::cout << "proto metadata_size = " << proto_placeholder.metadata_size() << std::endl;
-  std::cout << "proto data_size = " << proto_placeholder.data_size() << std::endl;
+void ReferenceCounter::GetProtoForMigration(rpc::ReferenceTableMigrationProto *proto){
+  absl::MutexLock lock(&mutex_);
+  for (const auto &id_ref : object_id_refs_) {
+    auto ref = proto->add_refs();
+    id_ref.second.ToProto(ref); // TODO(anthony): create a new logic for ToProtoForMigration
+    ref->mutable_reference()->set_object_id(id_ref.first.Binary());
+  }
 }
 
-void ReferenceCounter::PutProtoForMigration(const rpc::PlasmaObjectReadyRequest &proto_placeholder){
-  // Need to:
-  //   1) same as get
-  //   2) restore migrated info
-
-  std::cout << "targetProto object_id = " << proto_placeholder.object_id() << std::endl;
-  std::cout << "targetProto metadata_size = " << proto_placeholder.metadata_size() << std::endl;
-  std::cout << "targetProto data_size = " << proto_placeholder.data_size() << std::endl;
+void ReferenceCounter::PutProtoForMigration(const rpc::ReferenceTableMigrationProto &proto){
+  ReferenceTable refs;
+  refs = ReferenceTableFromProto(proto.refs()); // TODO(anthony): create a new logic for FromProtoForMigration
+  absl::MutexLock lock(&mutex_);
+  for (auto pair : refs) {
+    object_id_refs_.emplace(pair.first, pair.second);
+  }
 }
 
 ReferenceCounter::Reference ReferenceCounter::Reference::FromProto(
