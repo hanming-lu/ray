@@ -944,10 +944,12 @@ void ReferenceCounter::GetProtoForMigration(rpc::ReferenceTableMigrationProto *p
   //   2) design a proto message to hold such info
   //   3) use the proto message as a param to pass in (rpc::PlasmaObjectReadyRequest is only a placeholder)
   absl::MutexLock lock(&mutex_);
+  std::cout << "Object id refs is empty? " << object_id_refs_.empty() << std::endl;
   for (const auto &id_ref : object_id_refs_) {
     auto ref = proto_placeholder->add_refs();
     id_ref.second.ToProto(ref);
     ref->mutable_reference()->set_object_id(id_ref.first.Binary());
+    std::cout << id_ref.first << std::endl;
   }
 }
 
@@ -962,6 +964,9 @@ void ReferenceCounter::PutProtoForMigration(const rpc::ReferenceTableMigrationPr
   absl::MutexLock lock(&mutex_);
   for (auto pair : refs) {
     object_id_refs_.emplace(pair.first, pair.second);
+  }
+  for (const auto &id_ref : object_id_refs_) {
+    std::cout << id_ref.first << std::endl;
   }
 }
 
