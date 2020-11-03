@@ -465,64 +465,36 @@ MemoryStoreStats CoreWorkerMemoryStore::GetMemoryStoreStatisticalData() {
   return item;
 }
 
-void CoreWorkerMemoryStore::toProto(ray::rpc::MemoryObjectStore* mos) const{
+void CoreWorkerMemoryStore::GetProtoForMigration(rpc::MemoryObjectStore* mos) const{
+  absl::MutexLock lock(&mu_);
   //serialize 
-  ray::rpc::MemoryObject* memory_object;
+  rpc::MemoryObject* memory_object;
 
   auto iter = objects_.begin();
   while (iter != objects_.end()) {
-      auto rayObjectPair = (*iter);
-      memory_object = mos->add_objects();
-      memory_object->set_object_id(rayObjectPair.first.Binary());
-      memory_object->set_data(std::string(reinterpret_cast<const char *>(rayObjectPair.second->GetData()->Data()) ));
-      memory_object->set_data_size(rayObjectPair.second->GetData()->Size());
-      memory_object->set_metadata(std::string(reinterpret_cast<const char *>(rayObjectPair.second->GetMetadata()->Data()) ));
-      memory_object->set_metadata_size(rayObjectPair.second->GetMetadata()->Size());
-      //  for (auto nested_id : rayObjectPair.second->GetNestedIds()){
-      //    auto nid = memory_object->add_nested_object_ids();
-      //    nid->add(nested_id);
-      //  }
-      //memory_object->nested_object_ids() = {rayObjectPair.second->GetNestedIds().begin(), rayObjectPair.second->GetNestedIds().end()};
-      iter++;
+    auto rayObjectPair = (*iter);
+    memory_object = mos->add_objects();
+    memory_object->set_object_id(rayObjectPair.first.Binary());
+    memory_object->set_data(std::string(reinterpret_cast<const char *>(rayObjectPair.second->GetData()->Data()) ));
+    memory_object->set_data_size(rayObjectPair.second->GetData()->Size());
+    memory_object->set_metadata(std::string(reinterpret_cast<const char *>(rayObjectPair.second->GetMetadata()->Data()) ));
+    memory_object->set_metadata_size(rayObjectPair.second->GetMetadata()->Size());
+    for (auto nested_id : rayObjectPair.second->GetNestedIds()){
+      memory_object->add_nested_object_ids(nested_id.Binary());
+    }
+    iter++;
   }
 }
 
-void CoreWorkerMemoryStore::fromProto(ray::rpc::MemoryObjectStore& mos_de){
-  //ray::rpc::MemoryObject* memory_object_de;
-  for(const ray::rpc::MemoryObject& memory_object_de : mos_de.objects()){
+void CoreWorkerMemoryStore::PutProtoForMigration(const rpc::MemoryObjectStore& mos_de){
+  for(const rpc::MemoryObject& memory_object_de : mos_de.objects()){
     ObjectID object_id_de;
     object_id_de.FromBinary(memory_object_de.object_id());
 
     auto data_de = std::make_shared<LocalMemoryBuffer>(reinterpret_cast< uint8_t *>((char*)(memory_object_de.data().c_str())), (size_t)memory_object_de.data_size());
     auto meta_data_de = std::make_shared<LocalMemoryBuffer>(reinterpret_cast< uint8_t *>((char*)memory_object_de.metadata().c_str()), (size_t)memory_object_de.metadata_size());
-    std::vector<ObjectID> myvector;
-    Put(RayObject(data_de, meta_data_de, myvector),object_id_de) ;
+    Put(RayObject(data_de, meta_data_de, IdVectorFromProtobuf<ObjectID>(memory_object_de.nested_object_ids())),object_id_de);
   }
-}
-
-void CoreWorkerMemoryStore::GetProtoForMigration(rpc::PlasmaObjectReadyRequest &proto_placeholder){
-  // Need to:
-  //   1) decide what info to include for migration
-  //   2) design a proto message to hold such info
-  //   3) use the proto message as a param to pass in (rpc::PlasmaObjectReadyRequest is only a placeholder)
-
-  proto_placeholder.set_object_id("MemoryStore");
-  proto_placeholder.set_metadata_size(10);
-  proto_placeholder.set_data_size(20);
-
-  std::cout << "proto object_id = " << proto_placeholder.object_id() << std::endl;
-  std::cout << "proto metadata_size = " << proto_placeholder.metadata_size() << std::endl;
-  std::cout << "proto data_size = " << proto_placeholder.data_size() << std::endl;
-}
-
-void CoreWorkerMemoryStore::PutProtoForMigration(const rpc::PlasmaObjectReadyRequest &proto_placeholder){
-  // Need to:
-  //   1) same as get
-  //   2) restore migrated info
-
-  std::cout << "targetProto object_id = " << proto_placeholder.object_id() << std::endl;
-  std::cout << "targetProto metadata_size = " << proto_placeholder.metadata_size() << std::endl;
-  std::cout << "targetProto data_size = " << proto_placeholder.data_size() << std::endl;
 }
 }  // namespace ray
 
