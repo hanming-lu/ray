@@ -938,16 +938,10 @@ void ReferenceCounter::HandleObjectSpilled(const ObjectID &object_id) {
   ReleasePlasmaObject(it);
 }
 
-void ReferenceCounter::GetProtoForMigration(
-    rpc::ReferenceTableMigrationProto *proto_placeholder){
-  // Need to:
-  //   1) decide what info to include for migration
-  //   2) design a proto message to hold such info
-  //   3) use the proto message as a param to pass in (rpc::PlasmaObjectReadyRequest is only a placeholder)
+void ReferenceCounter::GetProtoForMigration(rpc::ReferenceTableMigrationProto *proto){
   absl::MutexLock lock(&mutex_);
-  std::cout << "Object id refs is empty? " << object_id_refs_.empty() << std::endl;
   for (const auto &id_ref : object_id_refs_) {
-    auto ref = proto_placeholder->add_refs();
+    auto ref = proto->add_refs();
     id_ref.second.ToProtoForMigration(ref);
     ref->mutable_reference_count()->mutable_reference()->set_object_id(id_ref.first.Binary());
     std::cout << id_ref.first << std::endl;
@@ -955,13 +949,9 @@ void ReferenceCounter::GetProtoForMigration(
 }
 
 void ReferenceCounter::PutProtoForMigration(
-    const rpc::ReferenceTableMigrationProto &proto_placeholder){
-  // Need to:
-  //   1) same as get
-  //   2) restore migrated info
-
+    const rpc::ReferenceTableMigrationProto &proto){
   ReferenceTable refs;
-  for (const auto &ref : proto_placeholder.refs()) {
+  for (const auto &ref : proto.refs()) {
     refs.emplace(ray::ObjectID::FromBinary(ref.reference_count().reference().object_id()),
                  Reference::FromProtoForMigration(ref));
   }
@@ -969,9 +959,6 @@ void ReferenceCounter::PutProtoForMigration(
   absl::MutexLock lock(&mutex_);
   for (auto pair : refs) {
     object_id_refs_.emplace(pair.first, pair.second);
-  }
-  for (const auto &id_ref : object_id_refs_) {
-    std::cout << id_ref.first << std::endl;
   }
 }
 
