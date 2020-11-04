@@ -292,6 +292,21 @@ message ObjectReferenceCount {
   repeated bytes contains = 6;
 }
 
+message ObjectReferenceCountForMigration {
+  string call_site = 1;
+  int64 object_size = 2;
+  bool owned_by_us = 3;
+  ObjectReferenceCount reference_count = 4;
+  bytes pinned_at_raylet_id = 5;
+  bool is_reconstructable = 6;
+  int64 local_ref_count = 7;
+  int64 submitted_task_ref_count = 8;
+  repeated bytes contained_in_owned = 9;
+  int64 lineage_ref_count = 10;
+  bool spilled = 11;
+}
+
+
 message WaitForRefRemovedReply {
   // The reference counts for the object that the worker was borrowing and
   // any objects nested inside. The worker should no longer be using the object
@@ -302,7 +317,7 @@ message WaitForRefRemovedReply {
 
 message ReferenceTableMigrationProto {
   // Test proto for migration
-  repeated ObjectReferenceCount refs = 1;
+  repeated ObjectReferenceCountForMigration refs = 1;
 }
 
 message LocalGCRequest {

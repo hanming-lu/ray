@@ -938,7 +938,8 @@ void ReferenceCounter::HandleObjectSpilled(const ObjectID &object_id) {
   ReleasePlasmaObject(it);
 }
 
-void ReferenceCounter::GetProtoForMigration(rpc::ReferenceTableMigrationProto *proto_placeholder){
+void ReferenceCounter::GetProtoForMigration(
+    rpc::ReferenceTableMigrationProto *proto_placeholder){
   // Need to:
   //   1) decide what info to include for migration
   //   2) design a proto message to hold such info
@@ -947,19 +948,23 @@ void ReferenceCounter::GetProtoForMigration(rpc::ReferenceTableMigrationProto *p
   std::cout << "Object id refs is empty? " << object_id_refs_.empty() << std::endl;
   for (const auto &id_ref : object_id_refs_) {
     auto ref = proto_placeholder->add_refs();
-    id_ref.second.ToProto(ref);
-    ref->mutable_reference()->set_object_id(id_ref.first.Binary());
+    id_ref.second.ToProtoForMigration(ref);
+    ref->mutable_reference_count()->mutable_reference()->set_object_id(id_ref.first.Binary());
     std::cout << id_ref.first << std::endl;
   }
 }
 
-void ReferenceCounter::PutProtoForMigration(const rpc::ReferenceTableMigrationProto &proto_placeholder){
+void ReferenceCounter::PutProtoForMigration(
+    const rpc::ReferenceTableMigrationProto &proto_placeholder){
   // Need to:
   //   1) same as get
   //   2) restore migrated info
 
   ReferenceTable refs;
-  refs = ReferenceTableFromProto(proto_placeholder.refs());
+  for (const auto &ref : proto_placeholder.refs()) {
+    refs.emplace(ray::ObjectID::FromBinary(ref.reference_count().reference().object_id()),
+                 Reference::FromProtoForMigration(ref));
+  }
   // TODO: Figure out what to do with merge conflicts
   absl::MutexLock lock(&mutex_);
   for (auto pair : refs) {
@@ -994,6 +999,29 @@ ReferenceCounter::Reference ReferenceCounter::Reference::FromProto(
   return ref;
 }
 
+ReferenceCounter::Reference ReferenceCounter::Reference::FromProtoForMigration(
+    const rpc::ObjectReferenceCountForMigration &ref_count) {
+  rpc::ObjectReferenceCount orc = ref_count.reference_count();
+  auto ref = Reference::FromProto(orc);
+
+  ref.call_site = ref_count.call_site();
+  ref.object_size = ref_count.object_size();
+  ref.owned_by_us = ref_count.owned_by_us();
+  // NodeID? 
+  // ref.pinned_at_raylet_id = ref_count.pinned_at_raylet_id();
+  
+  // const is_reconstructable
+  // ref.is_reconstructable = ref_count.is_reconstructable();
+  ref.local_ref_count = ref_count.local_ref_count();
+  ref.submitted_task_ref_count = ref_count.submitted_task_ref_count();
+  for (const auto &own : ref_count.contained_in_owned()) {
+    ref.contained_in_owned.insert(ObjectID::FromBinary(own));
+  }
+  ref.lineage_ref_count = ref_count.lineage_ref_count();
+  ref.spilled = ref_count.spilled();
+  return ref;
+}
+
 void ReferenceCounter::Reference::ToProto(rpc::ObjectReferenceCount *ref) const {
   if (owner_address) {
     ref->mutable_reference()->mutable_owner_address()->CopyFrom(*owner_address);
@@ -1014,6 +1042,25 @@ void ReferenceCounter::Reference::ToProto(rpc::ObjectReferenceCount *ref) const 
   for (const auto &contains_id : contains) {
     ref->add_contains(contains_id.Binary());
   }
+}
+
+void ReferenceCounter::Reference::ToProtoForMigration(
+    rpc::ObjectReferenceCountForMigration *ref) const {
+  rpc::ObjectReferenceCount *orc = ref->mutable_reference_count();
+  Reference::ToProto(orc);
+  ref->set_call_site(call_site);
+  ref->set_object_size(object_size);
+  ref->set_owned_by_us(owned_by_us);
+  // NodeID?
+  // ref->set_pinned_at_raylet_id(pinned_at_raylet_id);
+  ref->set_is_reconstructable(is_reconstructable);
+  ref->set_local_ref_count(local_ref_count);
+  ref->set_submitted_task_ref_count(submitted_task_ref_count);
+  for (const auto &object : contained_in_owned) {
+    ref->add_contained_in_owned(object.Binary());
+  }
+  ref->set_lineage_ref_count(lineage_ref_count);
+  ref->set_spilled(spilled);
 }
 
 }  // namespace ray
