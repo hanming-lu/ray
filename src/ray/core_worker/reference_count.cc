@@ -994,7 +994,7 @@ ReferenceCounter::Reference ReferenceCounter::Reference::FromProtoForMigration(
   std::cout << "Proto to ref: -------------------------------------------" << std::endl;
   rpc::ObjectReferenceCount orc = ref_count.reference_count();
   auto ref = Reference::FromProto(orc);
-  std::cout << "From Proto: " << std::endl;
+  /*std::cout << "From Proto: " << std::endl;
   ref.call_site = ref_count.call_site();
   std::cout << "Call site: " << ref_count.call_site() << std::endl;
   ref.object_size = ref_count.object_size();
@@ -1018,7 +1018,8 @@ ReferenceCounter::Reference ReferenceCounter::Reference::FromProtoForMigration(
   std::cout << "Lineage ref count: " << ref_count.lineage_ref_count() << std::endl;
   ref.spilled = ref_count.spilled();
   std::cout << "Spilled: " << ref_count.spilled() << std::endl;
-  return ref;
+  */
+ return ref;
 }
 
 void ReferenceCounter::Reference::ToProto(rpc::ObjectReferenceCount *ref) const {
@@ -1048,7 +1049,7 @@ void ReferenceCounter::Reference::ToProtoForMigration(
   rpc::ObjectReferenceCount *orc = ref->mutable_reference_count();
   std::cout << "Creating Proto:" << std::endl;
   Reference::ToProto(orc);
-  std::cout << "To Proto" << std::endl;
+  /*std::cout << "To Proto" << std::endl;
   ref->set_call_site(call_site);
   std::cout << "Call site: " << call_site << std::endl;
   ref->set_object_size(object_size);
@@ -1071,6 +1072,7 @@ void ReferenceCounter::Reference::ToProtoForMigration(
   std::cout << "Lineage ref count: " << lineage_ref_count << std::endl;
   ref->set_spilled(spilled);
   std::cout << "Spilled: " << spilled << std::endl;
+  */
 }
 
 }  // namespace ray
