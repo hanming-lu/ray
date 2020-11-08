@@ -939,19 +939,19 @@ void ReferenceCounter::HandleObjectSpilled(const ObjectID &object_id) {
 }
 
 void ReferenceCounter::GetProtoForMigration(rpc::ReferenceTableMigrationProto *proto){
-  std::cout << "Called GetProtoForMigration" << std::endl;
+  std::cout << "Called GetProtoForMigration -----------------------------------------" << std::endl;
   absl::MutexLock lock(&mutex_);
   for (const auto &id_ref : object_id_refs_) {
     auto ref = proto->add_refs();
     id_ref.second.ToProtoForMigration(ref);
     ref->mutable_reference_count()->mutable_reference()->set_object_id(id_ref.first.Binary());
   }
-  std::cout << "Finished GetProtoForMigration ------------------------" << std::endl;
+  std::cout << "Finished GetProtoForMigration ---------------------------------------" << std::endl;
 }
 
 void ReferenceCounter::PutProtoForMigration(
     const rpc::ReferenceTableMigrationProto &proto){
-  std::cout << "Called PutProtoForMigration" << std::endl;
+  std::cout << "Called PutProtoForMigration -----------------------------------------" << std::endl;
   ReferenceTable refs;
   for (const auto &ref : proto.refs()) {
     refs.emplace(ray::ObjectID::FromBinary(ref.reference_count().reference().object_id()),
@@ -962,7 +962,7 @@ void ReferenceCounter::PutProtoForMigration(
   for (auto pair : refs) {
     object_id_refs_.emplace(pair.first, pair.second);
   }
-  std::cout << "Finished PutProtoForMigration ------------------------" << std::endl;
+  std::cout << "Finished PutProtoForMigration ---------------------------------------" << std::endl;
 }
 
 ReferenceCounter::Reference ReferenceCounter::Reference::FromProto(
@@ -991,10 +991,9 @@ ReferenceCounter::Reference ReferenceCounter::Reference::FromProto(
 
 ReferenceCounter::Reference ReferenceCounter::Reference::FromProtoForMigration(
     const rpc::ObjectReferenceCountForMigration &ref_count) {
-  std::cout << "Proto to ref: -------------------------------------------" << std::endl;
   rpc::ObjectReferenceCount orc = ref_count.reference_count();
   auto ref = Reference::FromProto(orc);
-  /*std::cout << "From Proto: " << std::endl;
+  std::cout << "From Proto method called! " << std::endl;
   ref.call_site = ref_count.call_site();
   std::cout << "Call site: " << ref_count.call_site() << std::endl;
   ref.object_size = ref_count.object_size();
@@ -1018,7 +1017,6 @@ ReferenceCounter::Reference ReferenceCounter::Reference::FromProtoForMigration(
   std::cout << "Lineage ref count: " << ref_count.lineage_ref_count() << std::endl;
   ref.spilled = ref_count.spilled();
   std::cout << "Spilled: " << ref_count.spilled() << std::endl;
-  */
  return ref;
 }
 
@@ -1047,9 +1045,8 @@ void ReferenceCounter::Reference::ToProto(rpc::ObjectReferenceCount *ref) const 
 void ReferenceCounter::Reference::ToProtoForMigration(
     rpc::ObjectReferenceCountForMigration *ref) const {
   rpc::ObjectReferenceCount *orc = ref->mutable_reference_count();
-  std::cout << "Creating Proto:" << std::endl;
   Reference::ToProto(orc);
-  /*std::cout << "To Proto" << std::endl;
+  std::cout << "To Proto method called!" << std::endl;
   ref->set_call_site(call_site);
   std::cout << "Call site: " << call_site << std::endl;
   ref->set_object_size(object_size);
@@ -1072,7 +1069,6 @@ void ReferenceCounter::Reference::ToProtoForMigration(
   std::cout << "Lineage ref count: " << lineage_ref_count << std::endl;
   ref->set_spilled(spilled);
   std::cout << "Spilled: " << spilled << std::endl;
-  */
 }
 
 }  // namespace ray
