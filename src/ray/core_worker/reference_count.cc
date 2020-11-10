@@ -939,19 +939,17 @@ void ReferenceCounter::HandleObjectSpilled(const ObjectID &object_id) {
 }
 
 void ReferenceCounter::GetProtoForMigration(rpc::ReferenceTableMigrationProto *proto){
-  std::cout << "Called GetProtoForMigration -----------------------------------------" << std::endl;
   absl::MutexLock lock(&mutex_);
   for (const auto &id_ref : object_id_refs_) {
     auto ref = proto->add_refs();
     id_ref.second.ToProtoForMigration(ref);
     ref->mutable_reference_count()->mutable_reference()->set_object_id(id_ref.first.Binary());
+    std::cout << id_ref.first << std::endl;
   }
-  std::cout << "Finished GetProtoForMigration ---------------------------------------" << std::endl;
 }
 
 void ReferenceCounter::PutProtoForMigration(
     const rpc::ReferenceTableMigrationProto &proto){
-  std::cout << "Called PutProtoForMigration -----------------------------------------" << std::endl;
   ReferenceTable refs;
   for (const auto &ref : proto.refs()) {
     refs.emplace(ray::ObjectID::FromBinary(ref.reference_count().reference().object_id()),
@@ -962,7 +960,6 @@ void ReferenceCounter::PutProtoForMigration(
   for (auto pair : refs) {
     object_id_refs_.emplace(pair.first, pair.second);
   }
-  std::cout << "Finished PutProtoForMigration ---------------------------------------" << std::endl;
 }
 
 ReferenceCounter::Reference ReferenceCounter::Reference::FromProto(
@@ -993,31 +990,23 @@ ReferenceCounter::Reference ReferenceCounter::Reference::FromProtoForMigration(
     const rpc::ObjectReferenceCountForMigration &ref_count) {
   rpc::ObjectReferenceCount orc = ref_count.reference_count();
   auto ref = Reference::FromProto(orc);
-  std::cout << "From Proto method called! " << std::endl;
+
   ref.call_site = ref_count.call_site();
-  std::cout << "Call site: " << ref_count.call_site() << std::endl;
   ref.object_size = ref_count.object_size();
-  std::cout << "Object size: " << ref_count.object_size() << std::endl;
   ref.owned_by_us = ref_count.owned_by_us();
-  std::cout << "Owned by us: " << ref_count.owned_by_us() << std::endl;
   // NodeID? 
-  ref.pinned_at_raylet_id = NodeID::FromBinary(ref_count.pinned_at_raylet_id());
-  std::cout << "Pinned at raylet id: " << ref_count.pinned_at_raylet_id() << std::endl;
-  bool* is_reconstructable = const_cast<bool*>(&(ref.is_reconstructable));
-  *is_reconstructable = ref_count.is_reconstructable();
-  std::cout << "Is reconstructable: " << ref_count.is_reconstructable() << std::endl;
+  // ref.pinned_at_raylet_id = ref_count.pinned_at_raylet_id();
+  
+  // const is_reconstructable
+  // ref.is_reconstructable = ref_count.is_reconstructable();
   ref.local_ref_count = ref_count.local_ref_count();
-  std::cout << "Local ref count: " << ref_count.local_ref_count() << std::endl;
   ref.submitted_task_ref_count = ref_count.submitted_task_ref_count();
-  std::cout << "Submitted task ref count: " << ref_count.submitted_task_ref_count() << std::endl;
   for (const auto &own : ref_count.contained_in_owned()) {
     ref.contained_in_owned.insert(ObjectID::FromBinary(own));
   }
   ref.lineage_ref_count = ref_count.lineage_ref_count();
-  std::cout << "Lineage ref count: " << ref_count.lineage_ref_count() << std::endl;
   ref.spilled = ref_count.spilled();
-  std::cout << "Spilled: " << ref_count.spilled() << std::endl;
- return ref;
+  return ref;
 }
 
 void ReferenceCounter::Reference::ToProto(rpc::ObjectReferenceCount *ref) const {
@@ -1046,29 +1035,19 @@ void ReferenceCounter::Reference::ToProtoForMigration(
     rpc::ObjectReferenceCountForMigration *ref) const {
   rpc::ObjectReferenceCount *orc = ref->mutable_reference_count();
   Reference::ToProto(orc);
-  std::cout << "To Proto method called!" << std::endl;
   ref->set_call_site(call_site);
-  std::cout << "Call site: " << call_site << std::endl;
   ref->set_object_size(object_size);
-  std::cout << "Object size: " << object_size << std::endl;
   ref->set_owned_by_us(owned_by_us);
-  std::cout << "Owned by us: " << owned_by_us << std::endl;
   // NodeID?
-  ref->set_pinned_at_raylet_id(pinned_at_raylet_id->Binary());
-  std::cout << "Pinned at raylet id: " << pinned_at_raylet_id->Binary() << std::endl;
+  // ref->set_pinned_at_raylet_id(pinned_at_raylet_id);
   ref->set_is_reconstructable(is_reconstructable);
-  std::cout << "Is Reconstructable: " << is_reconstructable << std::endl;
   ref->set_local_ref_count(local_ref_count);
-  std::cout << "Local ref count: " << local_ref_count << std::endl;
   ref->set_submitted_task_ref_count(submitted_task_ref_count);
-  std::cout << "Submitted task ref count: " << submitted_task_ref_count << std::endl;
   for (const auto &object : contained_in_owned) {
     ref->add_contained_in_owned(object.Binary());
   }
   ref->set_lineage_ref_count(lineage_ref_count);
-  std::cout << "Lineage ref count: " << lineage_ref_count << std::endl;
   ref->set_spilled(spilled);
-  std::cout << "Spilled: " << spilled << std::endl;
 }
 
 }  // namespace ray
