@@ -944,7 +944,6 @@ void ReferenceCounter::GetProtoForMigration(rpc::ReferenceTableMigrationProto *p
     auto ref = proto->add_refs();
     id_ref.second.ToProtoForMigration(ref);
     ref->mutable_reference_count()->mutable_reference()->set_object_id(id_ref.first.Binary());
-    std::cout << id_ref.first << std::endl;
   }
 }
 
@@ -990,15 +989,12 @@ ReferenceCounter::Reference ReferenceCounter::Reference::FromProtoForMigration(
     const rpc::ObjectReferenceCountForMigration &ref_count) {
   rpc::ObjectReferenceCount orc = ref_count.reference_count();
   auto ref = Reference::FromProto(orc);
-
   ref.call_site = ref_count.call_site();
   ref.object_size = ref_count.object_size();
   ref.owned_by_us = ref_count.owned_by_us();
-  // NodeID? 
-  // ref.pinned_at_raylet_id = ref_count.pinned_at_raylet_id();
-  
-  // const is_reconstructable
-  // ref.is_reconstructable = ref_count.is_reconstructable();
+  ref.pinned_at_raylet_id = NodeID::FromBinary(ref_count.pinned_at_raylet_id());  
+  bool* is_reconstructable = const_cast<bool*>(&(ref.is_reconstructable));
+  *is_reconstructable = ref_count.is_reconstructable();
   ref.local_ref_count = ref_count.local_ref_count();
   ref.submitted_task_ref_count = ref_count.submitted_task_ref_count();
   for (const auto &own : ref_count.contained_in_owned()) {
@@ -1038,8 +1034,7 @@ void ReferenceCounter::Reference::ToProtoForMigration(
   ref->set_call_site(call_site);
   ref->set_object_size(object_size);
   ref->set_owned_by_us(owned_by_us);
-  // NodeID?
-  // ref->set_pinned_at_raylet_id(pinned_at_raylet_id);
+  if (pinned_at_raylet_id) { ref->set_pinned_at_raylet_id(pinned_at_raylet_id->Binary()); }
   ref->set_is_reconstructable(is_reconstructable);
   ref->set_local_ref_count(local_ref_count);
   ref->set_submitted_task_ref_count(submitted_task_ref_count);
