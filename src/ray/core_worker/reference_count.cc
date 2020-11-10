@@ -992,7 +992,9 @@ ReferenceCounter::Reference ReferenceCounter::Reference::FromProtoForMigration(
   ref.call_site = ref_count.call_site();
   ref.object_size = ref_count.object_size();
   ref.owned_by_us = ref_count.owned_by_us();
-  ref.pinned_at_raylet_id = NodeID::FromBinary(ref_count.pinned_at_raylet_id());  
+  ref.pinned_at_raylet_id = NodeID::FromBinary(ref_count.pinned_at_raylet_id());
+  // Given that this member is a const, a const_cast is required to
+  // set this value.  
   bool* is_reconstructable = const_cast<bool*>(&(ref.is_reconstructable));
   *is_reconstructable = ref_count.is_reconstructable();
   ref.local_ref_count = ref_count.local_ref_count();
@@ -1029,7 +1031,11 @@ void ReferenceCounter::Reference::ToProto(rpc::ObjectReferenceCount *ref) const 
 
 void ReferenceCounter::Reference::ToProtoForMigration(
     rpc::ObjectReferenceCountForMigration *ref) const {
+  RAY_CHECK(on_delete == NULL);
+  RAY_CHECK(on_ref_removed == NULL);
   rpc::ObjectReferenceCount *orc = ref->mutable_reference_count();
+  // Use the existing ToProto(ObjectReferenceCount) for part of the 
+  // member transfer
   Reference::ToProto(orc);
   ref->set_call_site(call_site);
   ref->set_object_size(object_size);
