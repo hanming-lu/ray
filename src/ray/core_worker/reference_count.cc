@@ -970,21 +970,33 @@ ReferenceCounter::Reference ReferenceCounter::Reference::FromProto(
   Reference ref;
   ref.owner_address = ref_count.reference().owner_address();
   ref.local_ref_count = ref_count.has_local_ref() ? 1 : 0;
+  std::cout << "Has local ref: " << ref_count.has_local_ref() << std::endl;
 
   for (const auto &borrower : ref_count.borrowers()) {
     ref.borrowers.insert(rpc::WorkerAddress(borrower));
+    rpc::WorkerAddress add = rpc::WorkerAddress(borrower);
+    std::cout << "Borrower members: ---------------------------------------------" << std::endl;
+    std::cout << "ip_address: " << add.ip_address << std::endl;
+    std::cout << "port      : " << add.port << std::endl;
+    std::cout << "worker_id : " << add.worker_id << std::endl;
+    std::cout << "raylet_id : " << add.raylet_id << std::endl;
   }
   for (const auto &object : ref_count.stored_in_objects()) {
     const auto &object_id = ObjectID::FromBinary(object.object_id());
     ref.stored_in_objects.emplace(object_id, rpc::WorkerAddress(object.owner_address()));
+    std::cout << "Object id: " << object_id << std::endl;
   }
   for (const auto &id : ref_count.contains()) {
     ref.contains.insert(ObjectID::FromBinary(id));
+    std::cout << "Contains id" << id << std::endl;
   }
   const auto contained_in_borrowed_id =
       ObjectID::FromBinary(ref_count.contained_in_borrowed_id());
   if (!contained_in_borrowed_id.IsNil()) {
     ref.contained_in_borrowed_id = contained_in_borrowed_id;
+    std::cout << "Has contained in borrowed id" << std::endl;
+  } else {
+    std::cout << "No contained in borrowed id" << std::endl;
   }
   return ref;
 }
@@ -992,8 +1004,9 @@ ReferenceCounter::Reference ReferenceCounter::Reference::FromProto(
 ReferenceCounter::Reference ReferenceCounter::Reference::FromProtoForMigration(
     const rpc::ObjectReferenceCountForMigration &ref_count) {
   rpc::ObjectReferenceCount orc = ref_count.reference_count();
+  std::cout << "Calling From Proto method ---------------------------------------------" << std::endl;
   auto ref = Reference::FromProto(orc);
-  std::cout << "From Proto method called! " << std::endl;
+  std::cout << "From Proto method called! ---------------------------------------------" << std::endl;
   ref.call_site = ref_count.call_site();
   std::cout << "Call site: " << ref_count.call_site() << std::endl;
   ref.object_size = ref_count.object_size();
@@ -1023,52 +1036,73 @@ ReferenceCounter::Reference ReferenceCounter::Reference::FromProtoForMigration(
 void ReferenceCounter::Reference::ToProto(rpc::ObjectReferenceCount *ref) const {
   if (owner_address) {
     ref->mutable_reference()->mutable_owner_address()->CopyFrom(*owner_address);
+    std::cout << "Owner addess exists" << std::endl;
+  } else {
+    std::cout << "No owner address" << std::endl;
   }
   bool has_local_ref = RefCount() > 0;
   ref->set_has_local_ref(has_local_ref);
+  std::cout << "Has local ref: " << has_local_ref << std::endl;
+
   for (const auto &borrower : borrowers) {
     ref->add_borrowers()->CopyFrom(borrower.ToProto());
+    std::cout << "Borrower members: ---------------------------------------------" << std::endl;
+    std::cout << "ip_address: " << borrower.ip_address << std::endl;
+    std::cout << "port      : " << borrower.port << std::endl;
+    std::cout << "worker_id : " << borrower.worker_id << std::endl;
+    std::cout << "raylet_id : " << borrower.raylet_id << std::endl;
   }
+  
   for (const auto &object : stored_in_objects) {
     auto ref_object = ref->add_stored_in_objects();
     ref_object->set_object_id(object.first.Binary());
     ref_object->mutable_owner_address()->CopyFrom(object.second.ToProto());
+    std::cout << "Object id: " << object.first.Binary() << std::endl;
   }
   if (contained_in_borrowed_id.has_value()) {
     ref->set_contained_in_borrowed_id(contained_in_borrowed_id->Binary());
+    std::cout << "Contained in borrowed id" << contained_in_borrowed_id->Binary() << std::endl;
+  } else {
+    std::cout << "No contained in borrowed id" << std::endl;
   }
   for (const auto &contains_id : contains) {
     ref->add_contains(contains_id.Binary());
+    std::cout << "Contains id" << contains_id << std::endl;
   }
 }
 
 void ReferenceCounter::Reference::ToProtoForMigration(
     rpc::ObjectReferenceCountForMigration *ref) const {
   rpc::ObjectReferenceCount *orc = ref->mutable_reference_count();
+  std::cout << "Calling To Proto method ---------------------------------------------" << std::endl;
   Reference::ToProto(orc);
-  std::cout << "To Proto method called!" << std::endl;
-  ref->set_call_site(call_site);
-  std::cout << "Call site: " << call_site << std::endl;
-  ref->set_object_size(object_size);
-  std::cout << "Object size: " << object_size << std::endl;
-  ref->set_owned_by_us(owned_by_us);
-  std::cout << "Owned by us: " << owned_by_us << std::endl;
+  std::cout << "To Proto method called! ---------------------------------------------" << std::endl;
+  ref->set_call_site("Hello");
+  std::cout << "Call site: " << "Hello" << std::endl;
+  ref->set_object_size(20);
+  std::cout << "Object size: " << 20 << std::endl;
+  ref->set_owned_by_us(true);
+  std::cout << "Owned by us: " << true << std::endl;
   // NodeID?
-  ref->set_pinned_at_raylet_id(pinned_at_raylet_id->Binary());
-  std::cout << "Pinned at raylet id: " << pinned_at_raylet_id->Binary() << std::endl;
-  ref->set_is_reconstructable(is_reconstructable);
-  std::cout << "Is Reconstructable: " << is_reconstructable << std::endl;
-  ref->set_local_ref_count(local_ref_count);
-  std::cout << "Local ref count: " << local_ref_count << std::endl;
-  ref->set_submitted_task_ref_count(submitted_task_ref_count);
-  std::cout << "Submitted task ref count: " << submitted_task_ref_count << std::endl;
+  if (pinned_at_raylet_id) {
+    ref->set_pinned_at_raylet_id(pinned_at_raylet_id->Binary());
+    std::cout << "Pinned at raylet id: " << pinned_at_raylet_id->Binary() << std::endl;    
+  } else {
+    std::cout << "No pinned at raylet id" << std::endl;
+  }
+  ref->set_is_reconstructable(true);
+  std::cout << "Is Reconstructable: " << true << std::endl;
+  ref->set_local_ref_count(21);
+  std::cout << "Local ref count: " << 21 << std::endl;
+  ref->set_submitted_task_ref_count(22);
+  std::cout << "Submitted task ref count: " << 22 << std::endl;
   for (const auto &object : contained_in_owned) {
     ref->add_contained_in_owned(object.Binary());
   }
-  ref->set_lineage_ref_count(lineage_ref_count);
-  std::cout << "Lineage ref count: " << lineage_ref_count << std::endl;
-  ref->set_spilled(spilled);
-  std::cout << "Spilled: " << spilled << std::endl;
+  ref->set_lineage_ref_count(23);
+  std::cout << "Lineage ref count: " << 23 << std::endl;
+  ref->set_spilled(true);
+  std::cout << "Spilled: " << true << std::endl;
 }
 
 }  // namespace ray
