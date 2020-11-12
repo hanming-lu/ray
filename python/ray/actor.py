@@ -924,8 +924,54 @@ class ActorHandle:
         state = self._serialization_helper()
         return ActorHandle._deserialization_helper, (state)
 
-
 def modify_class(cls):
+    # cls has been modified.
+    if hasattr(cls, "__ray_actor_class__"):
+        return cls
+
+    # Give an error if cls is an old-style class.
+    if not issubclass(cls, object):
+        raise TypeError(
+            "The @ray.remote decorator cannot be applied to old-style "
+            "classes. In Python 2, you must declare the class with "
+            "'class ClassName(object):' instead of 'class ClassName:'.")
+
+    # Modify the class to have an additional method that will be used for
+    # terminating the worker.
+    class Class(cls):
+        __ray_actor_class__ = cls  # The original actor class
+
+        # an additional method that will be used for terminating the worker.
+        def __ray_terminate__(self):
+            worker = ray.worker.global_worker
+            if worker.mode != ray.LOCAL_MODE:
+                ray.actor.exit_actor()
+
+        # For Anthony's experiments
+        # TODO(hanming): delete
+        def __get_node_id__(self):
+            worker = ray.worker.global_worker
+            worker.check_connected()
+
+            nodeID = worker.core_worker.get_current_node_id()
+            print("Current Node ID: ", nodeID)
+        
+    Class.__module__ = cls.__module__
+    Class.__name__ = cls.__name__
+
+    if not ray.utils.is_function_or_method(getattr(Class, "__init__", None)):
+        # Add __init__ if it does not exist.
+        # Actor creation will be executed with __init__ together.
+
+        # Assign an __init__ function will avoid many checks later on.
+        def __init__(self):
+            pass
+
+        Class.__init__ = __init__
+
+    return Class
+
+def modify_migratable_class(cls):
     # cls has been modified.
     if hasattr(cls, "__ray_actor_class__"):
         return cls
@@ -1051,7 +1097,12 @@ def modify_class(cls):
 
 def make_actor(cls, num_cpus, num_gpus, memory, object_store_memory, resources,
                accelerator_type, max_restarts, max_task_retries):
-    Class = modify_class(cls)
+    if hasattr(cls, "__migratable__"):
+        print("Creating a migratable class instance, setting max_restart = -1")
+        Class = modify_migratable_class(cls)
+        max_restarts = -1
+    else:
+        Class = modify_class(cls)
 
     if max_restarts is None:
         max_restarts = 0
