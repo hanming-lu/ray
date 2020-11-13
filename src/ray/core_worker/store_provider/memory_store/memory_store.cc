@@ -489,7 +489,7 @@ void CoreWorkerMemoryStore::GetProtoForMigration(rpc::MemoryObjectStore* mos) co
 void CoreWorkerMemoryStore::PutProtoForMigration(const rpc::MemoryObjectStore& mos_de){
   for(const rpc::MemoryObject& memory_object_de : mos_de.objects()){
     ObjectID object_id_de;
-    object_id_de.FromBinary(memory_object_de.object_id());
+    object_id_de = ObjectID::FromBinary(memory_object_de.object_id());
 
     auto data_de = std::make_shared<LocalMemoryBuffer>(reinterpret_cast< uint8_t *>((char*)(memory_object_de.data().c_str())), (size_t)memory_object_de.data_size());
     auto meta_data_de = std::make_shared<LocalMemoryBuffer>(reinterpret_cast< uint8_t *>((char*)memory_object_de.metadata().c_str()), (size_t)memory_object_de.metadata_size());
