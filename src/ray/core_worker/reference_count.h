@@ -416,6 +416,10 @@ class ReferenceCounter : public ReferenceCounterInterface {
     /// Serialize to a protobuf.
     void ToProto(rpc::ObjectReferenceCount *ref) const;
 
+    static Reference FromProtoForMigration(
+        const rpc::ObjectReferenceCountForMigration &ref_count);
+    void ToProtoForMigration(rpc::ObjectReferenceCountForMigration *ref) const;
+
     /// The reference count. This number includes:
     /// - Python references to the ObjectID.
     /// - Pending submitted tasks that depend on the object.
