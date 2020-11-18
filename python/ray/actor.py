@@ -2,6 +2,7 @@ import inspect
 import logging
 import weakref
 import pickle
+import os
 
 import ray.ray_constants as ray_constants
 import ray._raylet
@@ -954,7 +955,7 @@ def modify_class(cls):
             worker.check_connected()
 
             nodeID = worker.core_worker.get_current_node_id()
-            print("Current Node ID: ", nodeID)
+            return nodeID.hex()
         
     Class.__module__ = cls.__module__
     Class.__name__ = cls.__name__
@@ -1000,7 +1001,7 @@ def modify_migratable_class(cls):
             worker.check_connected()
 
             nodeID = worker.core_worker.get_current_node_id()
-            print("Current Node ID: ", nodeID)
+            return nodeID.hex()
         
         # an additional method that will be used for migrating the actor.
         # TODO(hanming): 
@@ -1036,6 +1037,10 @@ def modify_migratable_class(cls):
             else:
                 logger.warning("External storage is not initialized.")
 
+            node_id = self.__get_node_id__()
+            logger.info(f"Setting resource 'actor_num' on node {node_id} to be 0.")
+            ray.experimental.set_resource("actor_num", 0, node_id)
+            logger.info(f"Migrating actor {worker.actor_id.hex()} from node: {node_id}")
             ray.actor.exit_actor_for_migrating()
         
         # load state from redis if this actor is migrated
@@ -1084,12 +1089,15 @@ def modify_migratable_class(cls):
 
         Class.__init__ = __init__
 
-    # modify __init__ to allow automatic loading from redis
-    # TODO(hanming): consider the case where cls.__init__ takes in args (i.e. pass along args, kwargs)
-    def __ray_migrate_init__(self):
-        cls.__init__(self)
+    # modify __init__ to allow automatic loading states from redis
+    def __ray_migrate_init__(self, *args, **kwargs):
+        cls.__init__(self, *args, **kwargs)
         self.__ray_load_state__()
-    
+        worker = ray.worker.global_worker
+        worker.check_connected()
+        logger.info(f"Starting migrated actor {worker.actor_id.hex()}"
+                    f"on node id: {self.__get_node_id__()}")
+
     Class.__init__ = __ray_migrate_init__
 
     return Class
@@ -1098,7 +1106,6 @@ def modify_migratable_class(cls):
 def make_actor(cls, num_cpus, num_gpus, memory, object_store_memory, resources,
                accelerator_type, max_restarts, max_task_retries):
     if hasattr(cls, "__migratable__"):
-        print("Creating a migratable class instance, setting max_restart = -1")
         Class = modify_migratable_class(cls)
         max_restarts = -1
     else:
@@ -1167,10 +1174,8 @@ def exit_actor_for_migrating():
     """
     worker = ray.worker.global_worker
     if worker.mode == ray.WORKER_MODE and not worker.actor_id.is_nil():
-        # Set a flag to indicate this is an intentional actor exit.
         # GCS will respawn it since it is NOT disconnected from the raylet
-        exit = SystemExit(0)
-        raise exit
+        os.kill(os.getpid(),9)
         assert False, "This process should have terminated."
     else:
-        raise TypeError("exit_actor called on a non-actor worker.")
+        raise TypeError("exit_actor_for_migrating called on a non-actor worker.")
