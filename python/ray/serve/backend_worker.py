@@ -98,6 +98,8 @@ def create_backend_worker(func_or_class: Union[Callable, Type[Callable]]):
 
     # TODO(architkulkarni): Add type hints after upgrading cloudpickle
     class RayServeWrappedWorker(object):
+        # TODO(hanming): this will allow all Ray Serve workers become migratable, not sure if this is wanted.
+        __migratable__ = True
         def __init__(self, backend_tag, replica_tag, init_args,
                      backend_config: BackendConfig, controller_name: str):
             # Set the controller name so that serve.connect() will connect to
@@ -119,6 +121,12 @@ def create_backend_worker(func_or_class: Union[Callable, Type[Callable]]):
 
         def ready(self):
             pass
+
+        def __getstate__(self):
+            return self.backend.__getstate__()
+        
+        def __setstate__(self, odict):
+            return self.backend.__setstate__(odict)
 
     RayServeWrappedWorker.__name__ = "RayServeWorker_" + func_or_class.__name__
     return RayServeWrappedWorker
@@ -365,3 +373,9 @@ class RayServeWorker:
 
         self.num_ongoing_requests -= 1
         return result
+    
+    def __getstate__(self):
+        return self.callable.__getstate__()
+        
+    def __setstate__(self, odict):
+        return self.callable.__setstate__(odict)

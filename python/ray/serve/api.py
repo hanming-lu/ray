@@ -270,6 +270,18 @@ class Client:
         ray.get(self._controller.delete_backend.remote(backend_tag))
 
     @_ensure_connected
+    def migrate_backend(self, backend_tag: str) -> None:
+        """Migrate the given backend.
+        """
+        ray.get(self._controller.migrate_backend.remote(backend_tag))
+    
+    @_ensure_connected
+    def migrate_backend_on_node(self, node_id: str) -> None:
+        """Migrate all backends on the given nodeId.
+        """
+        ray.get(self._controller.migrate_backend_on_node.remote(node_id))
+
+    @_ensure_connected
     def set_traffic(self, endpoint_name: str,
                     traffic_policy_dictionary: Dict[str, float]) -> None:
         """Associate a service endpoint with traffic policy.

@@ -830,6 +830,34 @@ class ServeController:
             self._checkpoint()
             await self._stop_pending_replicas()
             await self._remove_pending_backends()
+    
+    async def migrate_backend(self, backend_tag: str) -> None:
+        async with self.write_lock:
+            backend_dict = self.get_all_worker_handles()
+            actor_handles = list(backend_dict[backend_tag].values())
+
+            for handle in actor_handles:
+                handle.__ray_migrate__.remote()
+
+    async def migrate_backend_on_node(self, node_id: str) -> None:
+        async with self.write_lock:
+            backend_dict = self.get_all_worker_handles()
+            actor_handles = [handle for backend_pair in list(backend_dict.values()) for handle in list(backend_pair.values()) ]
+            
+            node_ids_futures = []
+            for handle in actor_handles:
+                future = handle.__get_node_id__.remote().as_future()
+                node_ids_futures.append(future)
+            if len(node_ids_futures) > 0:
+                node_ids = await asyncio.gather(*node_ids_futures)
+
+            migration_futures = []
+            for i, v in enumerate(node_ids):
+                if v == node_id:
+                    future = actor_handles[i].__ray_migrate__.remote().as_future()
+                    migration_futures.append(future)
+            if len(migration_futures) > 0:
+                await asyncio.gather(*migration_futures)
 
     async def update_backend_config(
             self, backend_tag: str,
