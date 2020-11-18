@@ -1465,8 +1465,14 @@ void CoreWorker::SubmitActorTask(const ActorID &actor_id, const RayFunction &fun
   if (options_.is_local_mode) {
     ExecuteTaskLocalMode(task_spec, actor_id);
   } else {
-    task_manager_->AddPendingTask(rpc_address_, task_spec, CurrentCallSite(),
-                                  actor_handle->MaxTaskRetries());
+    // if the task is to migrate the actor, the actor is expected to fail, do not resubmit it
+    if (task_spec.GetName().find("__ray_migrate__()") != std::string::npos) {
+      task_manager_->AddPendingTask(rpc_address_, task_spec, CurrentCallSite(),
+                                    /* max_task_retries */ 0);
+    } else {
+      task_manager_->AddPendingTask(rpc_address_, task_spec, CurrentCallSite(),
+                                    actor_handle->MaxTaskRetries());
+    }
     io_service_.post([this, task_spec]() {
       RAY_UNUSED(direct_actor_submitter_->SubmitTask(task_spec));
     });
