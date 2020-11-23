@@ -1028,6 +1028,7 @@ def modify_migratable_class(cls):
                 states["ref_table"] = reference_table_bytes
             if memory_store_bytes:
                 states["memory_store"] = memory_store_bytes
+            print(states)
             states_bytes = pickle.dumps(states, protocol=pickle.HIGHEST_PROTOCOL)
 
             actor_id_key = worker.actor_id.binary()
@@ -1060,6 +1061,7 @@ def modify_migratable_class(cls):
             
             # restore user state, reference table, and memory store
             states_load = pickle.loads(states_bytes_load)
+            print(states_load)
             
             if "user_state" in states_load:
                 self.__setstate__(states_load["user_state"])
