@@ -245,7 +245,7 @@ RAY_CONFIG(int32_t, object_store_full_max_retries, 5)
 RAY_CONFIG(uint32_t, object_store_full_initial_delay_ms, 1000)
 
 /// Duration to wait between retries for failed tasks.
-RAY_CONFIG(uint32_t, task_retry_delay_ms, 5000)
+RAY_CONFIG(uint32_t, task_retry_delay_ms, 10)
 
 /// Duration to wait between retrying to kill a task.
 RAY_CONFIG(uint32_t, cancellation_retry_ms, 2000)
