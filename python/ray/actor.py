@@ -970,6 +970,16 @@ def modify_class(cls):
 
         Class.__init__ = __init__
 
+    # modify __init__ for testing Ray Serve
+    def __ray_init__(self, *args, **kwargs):
+        cls.__init__(self, *args, **kwargs)
+        worker = ray.worker.global_worker
+        worker.check_connected()
+        logger.info(f"Starting non-migratable actor {worker.actor_id.hex()}"
+                    f"on node id: {self.__get_node_id__()}")
+
+    Class.__init__ = __ray_init__
+
     return Class
 
 def modify_migratable_class(cls):
